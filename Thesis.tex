@@ -4,10 +4,14 @@
 %\documentclass[BTech]{iitmdiss}
 \usepackage{times}
  \usepackage{t1enc}
-
+\usepackage[options]{algorithm2e}
 \usepackage{graphicx}
+% \graphicspath{ {./Images/} }
 \usepackage{hyperref} % hyperlinks for references.
 \usepackage{amsmath} % easier math formulae, align, subequations \ldots
+% \usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
 
 \begin{document}
 
@@ -139,13 +143,199 @@ xxxxxxxxxxx \= xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx \kill
 
 \label{chap:intro}
 
-Robots are not mere fictional entities from movies anymore. They have come a long way to assisting a human and even
+Robots are not mere fictional entities from movies anymore. They have come a long way to assisting a human and even replace humans in some tasks.
+\section{SLAM}
+\section{Single robot SLAM}
+\section{Multi Robot SLAM}
+\subsection{Centralized Multi Robot SLAM}
+\subsection{Decentralized Multi Robot SLAM}
+\section{Exploration}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 
-\chapter{LITERATURE REVIEW}
+\chapter{BACKGROUND}
+\section{Centralized Multi Robot SLAM}
+\section{Decentralized Multi Robot SLAM}
+\section{Map merging}
+
 \chapter{CENTRALIZED MR-SLAM}
+\label{chap:intro}
+A centralized Multi robot system will have a centralized entity responsible for control and which manages all the information the individual robots passes to it. All robots will be in constant communication with this central entity. In centralized MRSLAM, this central server will be responsible for map merging. A robot cannot perform SLAM without the central server. Failure of the central server will result in failure of the whole system. \par
+An individual robot will send its local map to the central server whenever its map get updated. Central server will be receiving many such responses from all the robots in the systems. Communication from the server will be the final map. A robot outside the server's communication range will not be able to participate in this collective mapping. Robot went out of the server's communication range will wait for a connection form server so that they can continue SLAM.\par
+Since all the robots are in communication with the server, the global map can be continuously updated in a predetermined frequency as if each robots are contributing to a single map. The frequency can be determined considering the transmission capability of robot-server network link, processing capability of the server and the processing power of the robots.\par
+Every copy of the local map in each robots are interconnected through the server. So there is only one copy of final map in the entire system. When the mapping process is completed i.e. there are no frontiers in the global map anymore,the entire robot system can be terminated via the server and the final map can be extracted from the on-board memory of any one of the robots.\par
+
+\section{Localization based Mapping Strategy}
+To link each robot to a single map in a global point of view, we face the foll wing challenges.
+\begin{enumerate}
+    \item Initial Robot positions.
+    \item Getting a base map. This map will initiate the whole process.
+    \item Linking each robot to the base map.
+    \item Exploration and termination
+\end{enumerate}
+
+
+
+A pseudo code for Localization based Centralized MR SLAM is given below
+\begin{algorithm}
+ \caption{Centralized MR SLAM}\label{algorithm1}
+%  \KwIn{this text}
+%  \KwOut{how to write algorithm with \LaTeX2e }
+ 
+ one \textit{robot} initializes SLAM\;
+ 
+ \textit{robot} records initial map as local map\;
+ 
+ \textit{robot} transmits local map to server\;
+ 
+ \textit{server} receives first local map\;
+ 
+ \textit{server} initializes base map with the first local map\;
+ 
+ \textit{server} broadcasts the base map\;
+ 
+ \While{base map has frontiers}{
+  \textit{robot} receive map from server\;
+  
+  \eIf{robot position is known within received map}{
+   \textit{robot} records received map as its local map\;
+   
+   \textit{robot} continues SLAM\;
+   
+   \textit{robot} transmits map updates to server\;
+   
+   }{
+   \textit{robot} localizes within the received map\;
+  }
+  \textit{server} receives map updates\;
+  
+  \textit{server} generates global map from current map and map updates\;
+  
+  \textit{server} broadcasts latest map\;
+ }
+ \textit{server} terminates mapping\;
+ 
+\end{algorithm}
+
+The assumptions in this approach are,
+\begin{itemize}
+    \item each robot should start within mapping range of all other robots.
+    \item The range of central server is covering the whole map
+\end{itemize}
+Although this strategy uses additive mapping from all the robots i.e. no place in the map will be mapped more than once by different robots, Localizing robots holds the most significant challenges and cost. Successfully localizing a robot in a given map can be tricky. It is largely depended on the elements around the robot. Richer the scene, faster will be the localization. In a plain map, robot will take longer to localize. This adds time cost.\par
+If a robot fails to localize, it cannot contribute to the collective mapping. It will be able to create a local map by performing SLAM. But the link between the global map and its local map is missing. This can happen because of many factors e.g. robot not finding enough features for localization, robot was not contained in the received base map etc.\par
+When a robot ends up with wrong localization, things can get even more complicated. A wrong localization is when a robot completes localization but identifies some other coordinates as its current position. Robot being located outside the received base map, but in an identical location to that of the base map, can result in wrong localization instead of not localizing.\par
+
+\begin{figure}
+  \includegraphics[width=\linewidth]{WrongLocalization}
+  \caption{A boat.}
+  \label{fig:boat1}
+\end{figure}
+
+The chances of wrong localization increases further when all robots try to localize within the limited space of received base map. As the number of localizing robots increases, the scene become more dynamic and it becomes difficult for a robot to localize. Also dynamic environment increases the probability of wrong localization.\par 
+One way to solve this problem is to localize one robot at a time. So,even if all the robots are present in the base map, as they are not moving, the environment still remain static and localization become safer and faster. But localizing one robot at a time increases the time before the system attains its full potential. Also by the time the last robot completes localization, the base map would have developed significantly. So the time taken for the last robot to travel to next un-mapped area also adds to the time cost.
+
+After a successful localization, we get the link between the local map and the global map.i.e. The transformation between global map and local map. This transformation is applied to every map updates in local map frame of reference and added to global map. The key factor in this process is getting the transformation. That is the reason why we require localization.\par
+But if the transformation is already known, i.e. we know the link between global map and local map, the entire process becomes much simple and more resistant to failure. We acquire this by starting every robots at predetermined poses(position and orientation). We upload the robot id's and their poses in server before initializing the mapping process. Server computes the transformation between each robots and store it as initial static transformations. Using this transformation table, server can easily transform incoming map updates to global map.\par 
+This solution for localizing problem can be easily implemented in simulations as all we have to do is spawn the robots at the predetermined poses and upload the data into the server. But it is extremely tough to attain in real life tasks. The global map depends heavily on the accuracy of initial transformations. If we fail to position the robot exactly the way we intended to, The global map can become unreliable. This error will be on top the inherent errors associated with SLAM such as drift etc.\par
+There is a way to solve the problem without the need of (explicit)transformation at all.
+
+\section{Image based Mapping Strategy}
+In this strategy, we are eliminating the need for localization by making use of image aspects of map for stitching each map together. In this we are never making use of the transformation between robots. for this same reason, we do not need to start all robot in the mapping range of the robot which produces the initial map.\par
+There should be enough overlap between maps for stitching them together. The steps of image stitching using a pair of images are given below
+\begin{itemize}
+    \item Identify Key-points in both the maps along with its descriptors. Descriptors are useful in identifying key-points from different images. If there are many elements in the map, many key-points can be identified.
+    \item Comparing and Matching the key points. Cycling through the key-points and matching the similar points. This may include several outliers. Which are wrongly matched points.
+    \item Filtering outliers. Finding out the matches which varies significantly from others.
+    \itme Calculating the homography transformation between the maps from the inlier matches. We need at least 8 correct matches to calculate the homography matrix. This transformation defines how one map can be pasted over the other map.
+    \item warp one map according to the homography transformation.
+    \item Blend two maps together.
+\end{itemize}
+
+Key-points are considered as the point of interest in an image. They can be detected even if the image has undergone affine transformations. A keypoint and desctiptor defines a feature. In a map, more unique features gives better key-points and thus more reliable matches. This algorithm will work better when the environment has more edges, corners etc. 
+
+A pseudo code for Image based Centralized MR SLAM is given below
+\begin{algorithm}
+ \caption{Image Based Centralized MR SLAM}\label{algorithm1}
+%  \KwIn{this text}
+%  \KwOut{how to write algorithm with \LaTeX2e }
+ 
+ \textit{robot} initializes SLAM\;
+ 
+ \While{biggest map on server has frontiers}{
+ 
+  \textit{robot} perform SLAM and records local map\;
+  
+  \textit{robot} transmit local map to server\;
+  
+  \textit{server} receives local map from all robots\;
+  
+  \If{maps have sufficient overlap information between them}{
+   
+  \textit{server} generate a map stitching the map which has overlap\;
+  
+  
+  \textit{server} updates both local map to the stitched map\;
+  
+  \textit{server} transmit the updated local map to the respective robots\;
+   
+   }
+  \textit{robot} receives updated map\;
+  
+ }
+ \textit{server} terminates mapping\;
+ 
+\end{algorithm}
+
+Although this strategy can be faster because we are skipping the need of localization, there are some drawbacks for this approach as well.
+\begin{enumerate}
+    \item We need map overlap for the algorithm to work. When the mapping is completed, there will be maps which has common regions. The size of this common region will depend on the environment type and how much information is available to make a successful stitch. The common areas implies that the same area has been mapped multiple times. This increases the time cost of scanning that region and also opportunity cost associated with repeating of information.
+    \item Two robots being in communication range does not guarantee map merger. The maps should have enough overlapping information for the merger. 
+    \item same area can get mapped more than once. This may cause discrepancies in the final merged map.
+    \item This approach fails in a dynamic environment. As the process is not continuously adding features to a global map but merging parts of map together, it can fail to merge under dynamic environment. Since there can be differences in the map, the confidence factor has to be set lower which increases the chance of wrong map getting merged.
+    \item Server has to manage many map fragments before it can merge them together. Causes more memory usage.
+\end{enumerate}
+
+As compared to Localization based approach, this approach do not need explicit time to calculate the transformations between robots through localization. It can start the mapping process right away and homography transformation becomes known as the mapping process goes on. Once a homography is found out between two map fragments from different robots, their subsequent map updates can be directly applied. \par
+Since the robot starting within each one's mapping range is no longer needed, robots can be distributed strategically in the map so that they travel less distance and meet together in one common region which completes the map. Robot's initial position can affect the performance in this approach.\par 
+The algorithm has a closed loop at the robot's end. i.e. Robots do not require server's intervention for them to perform mapping. Server does makes it easier and faster for robots to execute the task. So the robots can continue mapping without checking for server transmitted data. As soon as a merger is found, server updates the corresponding robots map.\par
+So, This method uses a parallel architecture between robot and server as compared to serial architecture in the localization based approach.\par
+
+\section{Simulation and Analysis}
+
+Simulations are carried out using ROS. we use stage to simulate the environment and the robots. Maps are monitored in RVIZ. Navigation2D package is used for other robot functions such as navigation, obstacle avoidance, SLAM, etc. Google cartographer is the SLAM package used in the simulations.
+
+\subsection{Localization Based Centralized SLAM}
+For the localization based approach, the steps are as follows,
+\begin{enumerate}
+    \item Launch ROS packages for the simulation. important packages are robot packages, stage simulator and Rviz. 
+    \item Load the environment in stage and spawn the robots at the predefined locations.
+    \item Start initial mapping sequence for the first robot. This is a sequence of movements, going straight and then taking a complete rotation.
+    \item The initial map is synced to the other robots through the server. This will be considered as a base for global map.
+    \item Once other robots receive predefined area of map, A particle filter is initialized for localization.
+    \item Localizing is performed with the particle filter. Particle filter is initialized within the received map at that specific instant. If the robot is outside the received map at that instant, the localizing will fail. This is why the assumption of every robot starts within the mapping are of every other robots very important.
+    \item 
+\end{enumerate}
+
+\subsection{Image Based Centralized SLAM}
+
+\subsection{Analysis}
+ 
 \chapter{DECENTRALIZED MR-SLAM}
+\label{chap:intro}
+Unlike a centralized multi-robot system, a decentralized multi robot system lacks the presence of a central entity to control robots and manage the information collected by them. In a decentralized system, each robots will be independent, autonomous and able to process the information they collect. Also there is a limit to their communication range.
+In a decentralized system, only local communication is possible. Two robots can communicate only if they are within the communication range of each other. Robots perform independent SLAM if they are not communicating. Each robot is perfectly capable of generating the map and finish the task all by themselves. Communication lets them share the map in between so that the process become faster. While performing SLAM, every robot will be checking if it can communicate to other robots. Once the robot finds one, the SLAM process is paused, and map information is shared between them. After processing the received information, both robots can continue their individual SLAM.
+\section{Moving on from centralized strategy}
+A centralized strategy cannot be applied to a decentralized system mainly because of,
+\begin{enumerate}
+    \item The robots are not in constant communication with other robots. Only possible mode of communication is local communication.
+    \item The robots do not need to start within the mapping range of all other robots. They can start anywhere.
+    \item Localizing one robot in the other robot's map will take significant amount of time considering the fact that number of such localization will be much higher than the centralized counterpart.
+\end{enumerate}
+
+\section{Mapping Strategy}
+\section{Analysis}
+
 \chapter{RandEx ALGORITHM}
 \chapter{CONCLUSIONS AND RESULTS}
 \label{chap:intro}
